@@ -16,6 +16,10 @@ impl Vec3 {
         Self::new(0.0, 0.0, 0.0)
     }
 
+    pub fn one() -> Vec3 {
+        Self::new(1.0, 1.0, 1.0)
+    }
+
     pub fn length_squared(&self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
@@ -34,6 +38,12 @@ impl Vec3 {
 
     pub fn dot(a: &Vec3, b: &Vec3) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
+    }
+}
+
+impl Default for Vec3 {
+    fn default() -> Self {
+        Self::zero()
     }
 }
 

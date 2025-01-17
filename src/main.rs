@@ -46,6 +46,28 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
     Ok(())
 }
 
+#[derive(Default)]
+struct HitInfo {
+    point: Vec3,
+    normal: Vec3,
+    t: f32,
+    front_face: bool,
+}
+impl HitInfo {
+    fn set_face_normal(&mut self, ray: &Ray, outward_normal: &Vec3) {
+        self.front_face = Vec3::dot(&outward_normal, &ray.direction) < 0.0;
+        self.normal = if self.front_face {
+            *outward_normal
+        } else {
+            -*outward_normal
+        }
+    }
+}
+
+trait Hittable {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo>;
+}
+
 struct Sphere {
     center: Vec3,
     radius: f32,
@@ -55,23 +77,66 @@ impl Sphere {
         Sphere { center, radius }
     }
 }
+impl Hittable for Sphere {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo> {
+        let origin_to_center = self.center - ray.origin;
+        let a = ray.direction.length_squared();
+        let h = Vec3::dot(&ray.direction, &origin_to_center);
+        let c = origin_to_center.length_squared() - self.radius * self.radius;
 
-fn hit_sphere(sphere: &Sphere, ray: &Ray) -> bool {
-    let origin_to_center = sphere.center - ray.origin;
-    let a = ray.direction.length_squared();
-    let b = -2.0 * Vec3::dot(&ray.direction, &origin_to_center);
-    let c = origin_to_center.length_squared() - sphere.radius * sphere.radius;
+        let discriminant = h * h - a * c;
 
-    let discriminant = b * b - 4.0 * a * c;
+        if discriminant < 0.0 {
+            return None;
+        }
 
-    discriminant >= 0.0
+        let sqrt_discriminant = discriminant.sqrt();
+
+        let mut t = (h - sqrt_discriminant) / a;
+        if t <= t_min || t_max <= t {
+            t = (h + sqrt_discriminant) / a;
+            if t <= t_min || t_max <= t {
+                return None;
+            }
+        }
+
+        let mut hit_info = HitInfo::default();
+        hit_info.t = t;
+        hit_info.point = ray.at(t);
+
+        let outward_normal = (hit_info.point - self.center).normalized();
+        hit_info.set_face_normal(ray, &outward_normal);
+
+        Some(hit_info)
+    }
 }
 
-fn ray_color(ray: &Ray) -> Vec3 {
-    let sphere = Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5);
+type HittableList = Vec<Box<dyn Hittable>>;
+impl Hittable for HittableList {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo> {
+        let mut hit_info: Option<HitInfo> = None;
+        let mut closest_so_far = t_max;
 
-    if hit_sphere(&sphere, &ray) {
-        return Vec3::new(1.0, 0.0, 0.0);
+        for obj in self.iter() {
+            match obj.hit(ray, t_min, closest_so_far) {
+                Some(info) => {
+                    closest_so_far = info.t;
+                    hit_info = Some(info);
+                }
+                None => (),
+            }
+        }
+
+        hit_info
+    }
+}
+
+fn ray_color(ray: &Ray, world: &impl Hittable) -> Vec3 {
+    match world.hit(ray, 0.0, 1000.0) {
+        Some(hit_info) => {
+            return 0.5 * (hit_info.normal + Vec3::one());
+        }
+        None => (),
     }
 
     let sky_color: Vec3 = Vec3::new(0.5, 0.7, 1.0);
@@ -88,6 +153,11 @@ fn main() {
     let height = 400;
 
     let mut screen = Screen::new(width, height);
+
+    //Scene
+    let mut hittables: HittableList = Vec::new();
+    hittables.push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
+    hittables.push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
     // Camera
     let focal_length = 1.0;
@@ -110,7 +180,7 @@ fn main() {
             let ray_dir = pixel_center - camera_center;
             let ray = Ray::new(camera_center, ray_dir);
 
-            let color = ray_color(&ray);
+            let color = ray_color(&ray, &hittables);
 
             screen.write_pixel(
                 x,
@@ -122,8 +192,9 @@ fn main() {
                 ),
             );
         }
-        println!("\r\r{}/{}\r\r", y, height)
+        print!("\r{}/{}", y, height);
     }
+    println!();
 
     print!("Saving to file... ");
     io::stdout().flush().unwrap();
