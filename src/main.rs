@@ -46,7 +46,34 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
     Ok(())
 }
 
+struct Sphere {
+    center: Vec3,
+    radius: f32,
+}
+impl Sphere {
+    fn new(center: Vec3, radius: f32) -> Sphere {
+        Sphere { center, radius }
+    }
+}
+
+fn hit_sphere(sphere: &Sphere, ray: &Ray) -> bool {
+    let origin_to_center = sphere.center - ray.origin;
+    let a = ray.direction.length_squared();
+    let b = -2.0 * Vec3::dot(&ray.direction, &origin_to_center);
+    let c = origin_to_center.length_squared() - sphere.radius * sphere.radius;
+
+    let discriminant = b * b - 4.0 * a * c;
+
+    discriminant >= 0.0
+}
+
 fn ray_color(ray: &Ray) -> Vec3 {
+    let sphere = Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5);
+
+    if hit_sphere(&sphere, &ray) {
+        return Vec3::new(1.0, 0.0, 0.0);
+    }
+
     let sky_color: Vec3 = Vec3::new(0.5, 0.7, 1.0);
     let horizon_color: Vec3 = Vec3::new(1.0, 1.0, 1.0);
 
