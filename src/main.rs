@@ -2,7 +2,7 @@ mod math;
 
 use std::{
     fs::{self, File},
-    io::{self, Write},
+    io::{self, BufWriter, Write},
     path::Path,
 };
 
@@ -36,7 +36,7 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
     let parent_dir = filepath.parent().unwrap_or(Path::new(""));
     fs::create_dir_all(parent_dir)?;
 
-    let mut file = File::create(&filepath)?;
+    let mut file = BufWriter::new(File::create(&filepath)?);
 
     write!(file, "P3\n{} {}\n255\n", screen.width, screen.height)?;
     for pixel in screen.buffer.iter() {
