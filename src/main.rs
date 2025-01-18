@@ -7,6 +7,7 @@ use std::{
 };
 
 use math::{ray::Ray, vec3::Vec3};
+use rand::Rng;
 
 struct Screen {
     width: u32,
@@ -131,6 +132,10 @@ impl Hittable for HittableList {
     }
 }
 
+fn sample_unit_square(rng: &mut impl rand::RngCore) -> Vec3 {
+    Vec3::new(rng.gen::<f32>() - 0.5, rng.gen::<f32>() - 0.5, 0.0)
+}
+
 fn ray_color(ray: &Ray, world: &impl Hittable) -> Vec3 {
     match world.hit(ray, 0.0, 1000.0) {
         Some(hit_info) => {
@@ -151,6 +156,7 @@ fn ray_color(ray: &Ray, world: &impl Hittable) -> Vec3 {
 fn main() {
     let width = 540;
     let height = 400;
+    let samples_per_pixel = 10;
 
     let mut screen = Screen::new(width, height);
 
@@ -174,21 +180,31 @@ fn main() {
     let pixel_delta_v = viewport_v / screen.height as f32;
     let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
+    let mut rng = rand::thread_rng();
+
     for y in 0..height {
         for x in 0..width {
-            let pixel_center = pixel00_loc + x as f32 * pixel_delta_u + y as f32 * pixel_delta_v;
-            let ray_dir = pixel_center - camera_center;
-            let ray = Ray::new(camera_center, ray_dir);
+            let mut color: Vec3 = Vec3::zero();
+            for _ in 0..samples_per_pixel {
+                let offset = sample_unit_square(&mut rng);
+                let pixel_sample = pixel00_loc
+                    + pixel_delta_u * (x as f32 + offset.x)
+                    + pixel_delta_v * (y as f32 + offset.y);
+                let ray_dir = pixel_sample - camera_center;
+                let ray = Ray::new(camera_center, ray_dir);
 
-            let color = ray_color(&ray, &hittables);
+                color += ray_color(&ray, &hittables);
+            }
+
+            color /= samples_per_pixel as f32;
 
             screen.write_pixel(
                 x,
                 y,
                 (
-                    (color.x * 255.0) as u8,
-                    (color.y * 255.0) as u8,
-                    (color.z * 255.0) as u8,
+                    (color.x * 255.99) as u8,
+                    (color.y * 255.99) as u8,
+                    (color.z * 255.99) as u8,
                 ),
             );
         }
