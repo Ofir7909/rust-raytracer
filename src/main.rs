@@ -101,11 +101,11 @@ fn main() {
     let width = 540;
     let height = 400;
     let samples_per_pixel = 20;
-    let max_depth = 5;
+    let max_depth = 10;
 
     //Materials
     let ground_mat = Rc::new(materials::Lambertian {
-        albedo: Vec3::new(0.5, 0.5, 0.5),
+        albedo: Vec3::new(0.4, 0.59, 0.56),
     });
     let blue_diffuse = Rc::new(materials::Lambertian {
         albedo: Vec3::new(0.1, 0.2, 0.8),
@@ -118,6 +118,8 @@ fn main() {
         albedo: Vec3::new(0.962, 0.949, 0.922),
         roughness: 1.0,
     });
+    let glass_mat = Rc::new(materials::Dielectric { ior: 1.5 });
+    let glass_inner_mat = Rc::new(materials::Dielectric { ior: 1.0 / 1.5 });
 
     //Scene
     let mut hittables: HittableList = Vec::new();
@@ -135,7 +137,12 @@ fn main() {
     hittables.push(Box::new(Sphere::new(
         Vec3::new(-1.0, 0.0, -1.0),
         0.5,
-        silver_mat.clone(),
+        glass_mat.clone(),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(-1.0, 0.0, -1.0),
+        0.4,
+        glass_inner_mat.clone(),
     )));
     hittables.push(Box::new(Sphere::new(
         Vec3::new(0.0, -100.5, -1.0),

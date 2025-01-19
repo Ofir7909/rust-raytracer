@@ -45,6 +45,14 @@ impl Vec3 {
         *self - 2.0 * Vec3::dot(self, normal) * *normal
     }
 
+    pub fn refracted(&self, normal: &Vec3, ior_ratio: f32) -> Vec3 {
+        let cos_tetha = Vec3::dot(&(-*self), normal);
+        let dir_out_perp = (*self + cos_tetha * *normal) * ior_ratio;
+        let dir_out_parallel = -1.0 * (1.0 - dir_out_perp.length_squared()).sqrt() * *normal;
+
+        dir_out_perp + dir_out_parallel
+    }
+
     pub fn dot(a: &Vec3, b: &Vec3) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }

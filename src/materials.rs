@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::{
     hittables::HitInfo,
     math::{ray::Ray, vec3::Vec3},
@@ -39,4 +41,42 @@ impl Material for Metal {
             None
         }
     }
+}
+
+pub struct Dielectric {
+    pub ior: f32,
+}
+
+impl Material for Dielectric {
+    fn scatter(&self, ray_in: &Ray, hit_info: &HitInfo) -> Option<(Vec3, Ray)> {
+        let ri = if hit_info.front_face {
+            1.0 / self.ior
+        } else {
+            self.ior
+        };
+
+        let unit_dir = ray_in.direction.normalized();
+
+        let cos_theta = Vec3::dot(&(-unit_dir), &hit_info.normal);
+        let sin_theta = (1.0 - cos_theta.powi(2)).sqrt();
+
+        let cannot_refract = ri * sin_theta > 1.0;
+        let direction =
+            if cannot_refract || reflectance(cos_theta, ri) > rand::thread_rng().gen::<f32>() {
+                // Must reflect
+                unit_dir.reflected(&hit_info.normal)
+            } else {
+                unit_dir.refracted(&hit_info.normal, ri)
+            };
+
+        Some((Vec3::one(), Ray::new(hit_info.point, direction)))
+    }
+}
+
+fn reflectance(cos_theta: f32, ior: f32) -> f32 {
+    // Schlick's approximation
+    let r0 = (1.0 - ior) / (1.0 + ior);
+    let r0 = r0 * r0;
+
+    r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
 }
