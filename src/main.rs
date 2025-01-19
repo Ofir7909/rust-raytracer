@@ -29,10 +29,14 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
     Ok(())
 }
 
-fn ray_color(ray: &Ray, world: &impl Hittable) -> Vec3 {
-    match world.hit(ray, 0.0, 1000.0) {
+fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
+    if depth <= 0 {
+        return Vec3::zero();
+    }
+    match world.hit(ray, 0.001, 1000.0) {
         Some(hit_info) => {
-            return 0.5 * (hit_info.normal + Vec3::one());
+            let dir = hit_info.normal + utils::random_unit_vector();
+            return 0.5 * ray_color(&Ray::new(hit_info.point, dir), world, depth - 1);
         }
         None => (),
     }
@@ -46,16 +50,31 @@ fn ray_color(ray: &Ray, world: &impl Hittable) -> Vec3 {
     a * sky_color + (1.0 - a) * horizon_color
 }
 
-fn render(screen: &mut Screen, scene: &HittableList, camera: &Camera, samples: u32) {
+fn linear_to_gamma(color: &Vec3) -> Vec3 {
+    Vec3::new(
+        if color.x > 0.0 { color.x.sqrt() } else { 0.0 },
+        if color.y > 0.0 { color.y.sqrt() } else { 0.0 },
+        if color.z > 0.0 { color.z.sqrt() } else { 0.0 },
+    )
+}
+
+fn render(
+    screen: &mut Screen,
+    scene: &HittableList,
+    camera: &Camera,
+    samples: u32,
+    max_depth: u32,
+) {
     for y in 0..screen.height {
         for x in 0..screen.width {
             let mut color: Vec3 = Vec3::zero();
             for _ in 0..samples {
                 let ray = camera.get_ray(x, y);
-                color += ray_color(&ray, scene);
+                color += ray_color(&ray, scene, max_depth);
             }
 
             color /= samples as f32;
+            color = linear_to_gamma(&color);
 
             screen.write_pixel(
                 x,
@@ -75,7 +94,8 @@ fn render(screen: &mut Screen, scene: &HittableList, camera: &Camera, samples: u
 fn main() {
     let width = 540;
     let height = 400;
-    let samples_per_pixel = 10;
+    let samples_per_pixel = 20;
+    let max_depth = 5;
 
     //Scene
     let mut hittables: HittableList = Vec::new();
@@ -85,7 +105,13 @@ fn main() {
     let mut screen = Screen::new(width, height);
     let camera = Camera::new(width, height, Vec3::zero());
 
-    render(&mut screen, &hittables, &camera, samples_per_pixel);
+    render(
+        &mut screen,
+        &hittables,
+        &camera,
+        samples_per_pixel,
+        max_depth,
+    );
 
     print!("Saving to file... ");
     io::stdout().flush().unwrap();
