@@ -36,6 +36,15 @@ impl Vec3 {
         self / self.length()
     }
 
+    pub fn near_zero(&self) -> bool {
+        let d = 1e-8;
+        self.x.abs() < d && self.y.abs() < d && self.z.abs() < d
+    }
+
+    pub fn reflected(&self, normal: &Vec3) -> Vec3 {
+        *self - 2.0 * Vec3::dot(self, normal) * *normal
+    }
+
     pub fn dot(a: &Vec3, b: &Vec3) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }

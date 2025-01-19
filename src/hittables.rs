@@ -1,13 +1,27 @@
-use crate::math::{ray::Ray, vec3::Vec3};
+use std::rc::Rc;
 
-#[derive(Default)]
+use crate::{
+    materials::Material,
+    math::{ray::Ray, vec3::Vec3},
+};
+
 pub struct HitInfo {
     pub point: Vec3,
     pub normal: Vec3,
+    pub material: Rc<dyn Material>,
     pub t: f32,
     pub front_face: bool,
 }
 impl HitInfo {
+    pub fn new(material: Rc<dyn Material>) -> HitInfo {
+        HitInfo {
+            material,
+            point: Default::default(),
+            normal: Default::default(),
+            t: Default::default(),
+            front_face: Default::default(),
+        }
+    }
     pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: &Vec3) {
         self.front_face = Vec3::dot(&outward_normal, &ray.direction) < 0.0;
         self.normal = if self.front_face {
@@ -25,11 +39,16 @@ pub trait Hittable {
 pub struct Sphere {
     center: Vec3,
     radius: f32,
+    material: Rc<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f32) -> Sphere {
-        Sphere { center, radius }
+    pub fn new(center: Vec3, radius: f32, material: Rc<dyn Material>) -> Sphere {
+        Sphere {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
@@ -56,7 +75,7 @@ impl Hittable for Sphere {
             }
         }
 
-        let mut hit_info = HitInfo::default();
+        let mut hit_info = HitInfo::new(self.material.clone());
         hit_info.t = t;
         hit_info.point = ray.at(t);
 

@@ -1,5 +1,6 @@
 mod camera;
 mod hittables;
+mod materials;
 mod math;
 mod screen;
 mod utils;
@@ -8,6 +9,7 @@ use std::{
     fs::{self, File},
     io::{self, BufWriter, Write},
     path::Path,
+    rc::Rc,
 };
 
 use camera::Camera;
@@ -35,8 +37,12 @@ fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
     }
     match world.hit(ray, 0.001, 1000.0) {
         Some(hit_info) => {
-            let dir = hit_info.normal + utils::random_unit_vector();
-            return 0.5 * ray_color(&Ray::new(hit_info.point, dir), world, depth - 1);
+            return match hit_info.material.scatter(ray, &hit_info) {
+                Some((attenution, scattered_ray)) => {
+                    attenution * ray_color(&scattered_ray, world, depth - 1)
+                }
+                None => Vec3::zero(),
+            };
         }
         None => (),
     }
@@ -97,10 +103,45 @@ fn main() {
     let samples_per_pixel = 20;
     let max_depth = 5;
 
+    //Materials
+    let ground_mat = Rc::new(materials::Lambertian {
+        albedo: Vec3::new(0.5, 0.5, 0.5),
+    });
+    let blue_diffuse = Rc::new(materials::Lambertian {
+        albedo: Vec3::new(0.1, 0.2, 0.8),
+    });
+    let gold_mat = Rc::new(materials::Metal {
+        albedo: Vec3::new(0.944, 0.776, 0.373),
+        roughness: 0.4,
+    });
+    let silver_mat = Rc::new(materials::Metal {
+        albedo: Vec3::new(0.962, 0.949, 0.922),
+        roughness: 1.0,
+    });
+
     //Scene
     let mut hittables: HittableList = Vec::new();
-    hittables.push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
-    hittables.push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(0.0, 0.0, -1.2),
+        0.5,
+        blue_diffuse.clone(),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(1.0, 0.0, -1.0),
+        0.5,
+        gold_mat.clone(),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(-1.0, 0.0, -1.0),
+        0.5,
+        silver_mat.clone(),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(0.0, -100.5, -1.0),
+        100.0,
+        ground_mat.clone(),
+    )));
 
     let mut screen = Screen::new(width, height);
     let camera = Camera::new(width, height, Vec3::zero());
