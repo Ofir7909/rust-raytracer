@@ -8,16 +8,12 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
+    pub const ZERO: Self = Vec3::new(0.0, 0.0, 0.0);
+    pub const ONE: Self = Vec3::new(1.0, 1.0, 1.0);
+    pub const UP: Self = Vec3::new(0.0, 1.0, 0.0);
+
+    pub const fn new(x: f32, y: f32, z: f32) -> Vec3 {
         Vec3 { x, y, z }
-    }
-
-    pub fn zero() -> Vec3 {
-        Self::new(0.0, 0.0, 0.0)
-    }
-
-    pub fn one() -> Vec3 {
-        Self::new(1.0, 1.0, 1.0)
     }
 
     pub fn length_squared(&self) -> f32 {
@@ -56,11 +52,19 @@ impl Vec3 {
     pub fn dot(a: &Vec3, b: &Vec3) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
+
+    pub fn cross(a: &Vec3, b: &Vec3) -> Vec3 {
+        Vec3 {
+            x: a.y * b.z - a.z * b.y,
+            y: a.z * b.x - a.x * b.z,
+            z: a.x * b.y - a.y * b.x,
+        }
+    }
 }
 
 impl Default for Vec3 {
     fn default() -> Self {
-        Self::zero()
+        Self::ZERO
     }
 }
 

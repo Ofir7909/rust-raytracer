@@ -69,7 +69,7 @@ impl Material for Dielectric {
                 unit_dir.refracted(&hit_info.normal, ri)
             };
 
-        Some((Vec3::one(), Ray::new(hit_info.point, direction)))
+        Some((Vec3::ONE, Ray::new(hit_info.point, direction)))
     }
 }
 

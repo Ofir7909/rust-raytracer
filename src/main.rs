@@ -33,7 +33,7 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
 
 fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
     if depth <= 0 {
-        return Vec3::zero();
+        return Vec3::ZERO;
     }
     match world.hit(ray, 0.001, 1000.0) {
         Some(hit_info) => {
@@ -41,7 +41,7 @@ fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
                 Some((attenution, scattered_ray)) => {
                     attenution * ray_color(&scattered_ray, world, depth - 1)
                 }
-                None => Vec3::zero(),
+                None => Vec3::ZERO,
             };
         }
         None => (),
@@ -73,7 +73,7 @@ fn render(
 ) {
     for y in 0..screen.height {
         for x in 0..screen.width {
-            let mut color: Vec3 = Vec3::zero();
+            let mut color: Vec3 = Vec3::ZERO;
             for _ in 0..samples {
                 let ray = camera.get_ray(x, y);
                 color += ray_color(&ray, scene, max_depth);
@@ -151,7 +151,14 @@ fn main() {
     )));
 
     let mut screen = Screen::new(width, height);
-    let camera = Camera::new(width, height, Vec3::zero());
+    let camera = Camera::new(
+        width,
+        height,
+        Vec3::new(-2.0, 2.0, 1.0),
+        20.0,
+        Vec3::new(0.0, 0.0, -1.0),
+        Vec3::UP,
+    );
 
     render(
         &mut screen,
