@@ -29,3 +29,13 @@ pub fn random_on_hemisphere(normal: &Vec3) -> Vec3 {
         -unit_v
     }
 }
+
+pub fn random_in_unit_disk() -> Vec3 {
+    let mut rng = rand::thread_rng();
+    loop {
+        let v = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+        if v.length_squared() <= 1.0 {
+            return v;
+        }
+    }
+}

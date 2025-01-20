@@ -158,7 +158,12 @@ fn main() {
         20.0,
         Vec3::new(0.0, 0.0, -1.0),
         Vec3::UP,
+        10.0,
+        3.4,
     );
+
+    println!("Starting render.");
+    let start_time = std::time::Instant::now();
 
     render(
         &mut screen,
@@ -166,6 +171,13 @@ fn main() {
         &camera,
         samples_per_pixel,
         max_depth,
+    );
+
+    let duration = start_time.elapsed();
+    println!(
+        "Render took {}:{} ",
+        duration.as_secs() / 60,
+        duration.as_secs() % 60
     );
 
     print!("Saving to file... ");
