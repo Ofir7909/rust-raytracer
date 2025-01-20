@@ -15,6 +15,7 @@ use std::{
 use camera::Camera;
 use hittables::{Hittable, HittableList, Sphere};
 use math::{ray::Ray, vec3::Vec3};
+use rand::Rng;
 use screen::Screen;
 
 fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> {
@@ -97,13 +98,7 @@ fn render(
     println!();
 }
 
-fn main() {
-    let width = 540;
-    let height = 400;
-    let samples_per_pixel = 20;
-    let max_depth = 10;
-
-    //Materials
+fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
     let ground_mat = Rc::new(materials::Lambertian {
         albedo: Vec3::new(0.4, 0.59, 0.56),
     });
@@ -114,14 +109,9 @@ fn main() {
         albedo: Vec3::new(0.944, 0.776, 0.373),
         roughness: 0.4,
     });
-    let silver_mat = Rc::new(materials::Metal {
-        albedo: Vec3::new(0.962, 0.949, 0.922),
-        roughness: 1.0,
-    });
     let glass_mat = Rc::new(materials::Dielectric { ior: 1.5 });
     let glass_inner_mat = Rc::new(materials::Dielectric { ior: 1.0 / 1.5 });
 
-    //Scene
     let mut hittables: HittableList = Vec::new();
 
     hittables.push(Box::new(Sphere::new(
@@ -150,17 +140,105 @@ fn main() {
         ground_mat.clone(),
     )));
 
-    let mut screen = Screen::new(width, height);
     let camera = Camera::new(
         width,
         height,
         Vec3::new(-2.0, 2.0, 1.0),
-        20.0,
+        30.0,
         Vec3::new(0.0, 0.0, -1.0),
         Vec3::UP,
         10.0,
         3.4,
     );
+
+    (hittables, camera)
+}
+
+fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
+    let mut rng = rand::thread_rng();
+
+    let mut hittables: HittableList = Vec::new();
+    hittables.reserve(22 * 22 + 10);
+
+    // Ground
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        Rc::new(materials::Lambertian {
+            albedo: Vec3::new(0.4, 0.59, 0.56),
+        }),
+    )));
+
+    // Big spheres
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(0.0, 1.0, 0.0),
+        1.0,
+        Rc::new(materials::Dielectric { ior: 1.5 }),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(-4.0, 1.0, 0.0),
+        1.0,
+        Rc::new(materials::Lambertian {
+            albedo: Vec3::new(0.4, 0.2, 0.1),
+        }),
+    )));
+    hittables.push(Box::new(Sphere::new(
+        Vec3::new(4.0, 1.0, 0.0),
+        1.0,
+        Rc::new(materials::Metal {
+            albedo: Vec3::new(0.7, 0.6, 0.5),
+            roughness: 0.1,
+        }),
+    )));
+
+    // Small spheres
+    for x in -11..11 {
+        for z in -11..11 {
+            let radius = 0.2;
+            let center = Vec3::new(
+                x as f32 + rng.gen_range::<f32, _>(0.1..0.9),
+                radius,
+                z as f32 + 0.9 * rng.gen_range::<f32, _>(0.1..0.9),
+            );
+
+            let material: Rc<dyn materials::Material> = match rng.gen::<f32>() {
+                x if x < 0.7 => Rc::new(materials::Lambertian {
+                    albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
+                }),
+                x if x < 0.9 => Rc::new(materials::Metal {
+                    albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
+                    roughness: rng.gen(),
+                }),
+                _ => Rc::new(materials::Dielectric { ior: 1.5 }),
+            };
+
+            hittables.push(Box::new(Sphere::new(center, radius, material)));
+        }
+    }
+
+    let camera = Camera::new(
+        width,
+        height,
+        Vec3::new(13.0, 2.0, 3.0),
+        20.0,
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::UP,
+        0.6,
+        10.0,
+    );
+
+    (hittables, camera)
+}
+
+fn main() {
+    let width = 1920;
+    let height = 1080;
+    let samples_per_pixel = 100;
+    let max_depth = 20;
+
+    let mut screen = Screen::new(width, height);
+
+    let (hittables, camera) = create_final_scene(width, height);
 
     println!("Starting render.");
     let start_time = std::time::Instant::now();
