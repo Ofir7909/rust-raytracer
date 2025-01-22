@@ -9,7 +9,8 @@ use std::{
     fs::{self, File},
     io::{self, BufWriter, Write},
     path::Path,
-    rc::Rc,
+    sync::Arc,
+    thread,
 };
 
 use camera::Camera;
@@ -71,15 +72,51 @@ fn render(
     camera: &Camera,
     samples: u32,
     max_depth: u32,
+    thread_count: u32,
 ) {
+    let mut colors = vec![Vec3::ZERO; (screen.width * screen.height) as usize];
+    thread::scope(|scope| {
+        let width = screen.width;
+        let height = screen.height;
+
+        let thread_with_extra_sample = samples % thread_count;
+        let base_samples_per_thread = samples / thread_count;
+
+        let mut handles = vec![];
+        handles.reserve(thread_count as usize);
+
+        for i in 0..thread_count {
+            let samples_in_thread = base_samples_per_thread + (i < thread_with_extra_sample) as u32;
+            let handle = scope.spawn(move || {
+                let mut colors_local = vec![Vec3::ZERO; (width * height) as usize];
+
+                for y in 0..height {
+                    for x in 0..width {
+                        let i = (y * width + x) as usize;
+                        for _ in 0..samples_in_thread {
+                            let ray = camera.get_ray(x, y);
+                            colors_local[i] += ray_color(&ray, scene, max_depth);
+                        }
+                    }
+                }
+                colors_local
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            let colors_local = h.join().unwrap();
+            colors = colors
+                .iter()
+                .zip(colors_local.iter())
+                .map(|(a, b)| *a + *b)
+                .collect();
+        }
+    });
+
     for y in 0..screen.height {
         for x in 0..screen.width {
-            let mut color: Vec3 = Vec3::ZERO;
-            for _ in 0..samples {
-                let ray = camera.get_ray(x, y);
-                color += ray_color(&ray, scene, max_depth);
-            }
-
+            let mut color = colors[(y * screen.width + x) as usize];
             color /= samples as f32;
             color = linear_to_gamma(&color);
 
@@ -93,24 +130,22 @@ fn render(
                 ),
             );
         }
-        print!("\r{}/{}", y, screen.height);
     }
-    println!();
 }
 
 fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
-    let ground_mat = Rc::new(materials::Lambertian {
+    let ground_mat = Arc::new(materials::Lambertian {
         albedo: Vec3::new(0.4, 0.59, 0.56),
     });
-    let blue_diffuse = Rc::new(materials::Lambertian {
+    let blue_diffuse = Arc::new(materials::Lambertian {
         albedo: Vec3::new(0.1, 0.2, 0.8),
     });
-    let gold_mat = Rc::new(materials::Metal {
+    let gold_mat = Arc::new(materials::Metal {
         albedo: Vec3::new(0.944, 0.776, 0.373),
         roughness: 0.4,
     });
-    let glass_mat = Rc::new(materials::Dielectric { ior: 1.5 });
-    let glass_inner_mat = Rc::new(materials::Dielectric { ior: 1.0 / 1.5 });
+    let glass_mat = Arc::new(materials::Dielectric { ior: 1.5 });
+    let glass_inner_mat = Arc::new(materials::Dielectric { ior: 1.0 / 1.5 });
 
     let mut hittables: HittableList = Vec::new();
 
@@ -164,7 +199,7 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
     hittables.push(Box::new(Sphere::new(
         Vec3::new(0.0, -1000.0, 0.0),
         1000.0,
-        Rc::new(materials::Lambertian {
+        Arc::new(materials::Lambertian {
             albedo: Vec3::new(0.4, 0.59, 0.56),
         }),
     )));
@@ -173,19 +208,19 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
     hittables.push(Box::new(Sphere::new(
         Vec3::new(0.0, 1.0, 0.0),
         1.0,
-        Rc::new(materials::Dielectric { ior: 1.5 }),
+        Arc::new(materials::Dielectric { ior: 1.5 }),
     )));
     hittables.push(Box::new(Sphere::new(
         Vec3::new(-4.0, 1.0, 0.0),
         1.0,
-        Rc::new(materials::Lambertian {
+        Arc::new(materials::Lambertian {
             albedo: Vec3::new(0.4, 0.2, 0.1),
         }),
     )));
     hittables.push(Box::new(Sphere::new(
         Vec3::new(4.0, 1.0, 0.0),
         1.0,
-        Rc::new(materials::Metal {
+        Arc::new(materials::Metal {
             albedo: Vec3::new(0.7, 0.6, 0.5),
             roughness: 0.1,
         }),
@@ -201,15 +236,15 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
                 z as f32 + 0.9 * rng.gen_range::<f32, _>(0.1..0.9),
             );
 
-            let material: Rc<dyn materials::Material> = match rng.gen::<f32>() {
-                x if x < 0.7 => Rc::new(materials::Lambertian {
+            let material: Arc<dyn materials::Material> = match rng.gen::<f32>() {
+                x if x < 0.7 => Arc::new(materials::Lambertian {
                     albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
                 }),
-                x if x < 0.9 => Rc::new(materials::Metal {
+                x if x < 0.9 => Arc::new(materials::Metal {
                     albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
                     roughness: rng.gen(),
                 }),
-                _ => Rc::new(materials::Dielectric { ior: 1.5 }),
+                _ => Arc::new(materials::Dielectric { ior: 1.5 }),
             };
 
             hittables.push(Box::new(Sphere::new(center, radius, material)));
@@ -235,6 +270,7 @@ fn main() {
     let height = 1080;
     let samples_per_pixel = 100;
     let max_depth = 20;
+    let thread_count = 8;
 
     let mut screen = Screen::new(width, height);
 
@@ -249,6 +285,7 @@ fn main() {
         &camera,
         samples_per_pixel,
         max_depth,
+        thread_count,
     );
 
     let duration = start_time.elapsed();
