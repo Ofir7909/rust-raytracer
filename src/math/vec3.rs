@@ -16,6 +16,10 @@ impl Vec3 {
         Vec3 { x, y, z }
     }
 
+    pub const fn uniform(v: f32) -> Vec3 {
+        Vec3::new(v, v, v)
+    }
+
     pub fn length_squared(&self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
@@ -177,5 +181,18 @@ impl ops::Div<f32> for Vec3 {
 impl ops::DivAssign<f32> for Vec3 {
     fn div_assign(&mut self, rhs: f32) {
         *self = *self / rhs
+    }
+}
+
+impl ops::Index<usize> for Vec3 {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => panic!("index out of bounds"),
+        }
     }
 }

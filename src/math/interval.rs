@@ -14,6 +14,13 @@ impl Interval {
         Interval { start, end }
     }
 
+    pub const fn combine(a: &Interval, b: &Interval) -> Interval {
+        Interval {
+            start: if a.start <= b.start { a.start } else { b.start },
+            end: if a.end >= b.end { a.end } else { b.end },
+        }
+    }
+
     pub fn size(&self) -> f32 {
         self.end - self.start
     }
@@ -34,6 +41,10 @@ impl Interval {
         } else {
             v
         }
+    }
+
+    pub fn expanded(&self, delta: f32) -> Interval {
+        Interval::new(self.start - delta / 2.0, self.end + delta / 2.0)
     }
 }
 

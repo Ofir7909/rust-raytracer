@@ -15,7 +15,7 @@ use std::{
 };
 
 use camera::Camera;
-use hittables::{Hittable, HittableList, Sphere};
+use hittables::{BVHNode, Hittable, HittableList, Sphere};
 use math::{interval::Interval, ray::Ray, vec3::Vec3};
 use rand::Rng;
 use screen::Screen;
@@ -69,7 +69,7 @@ fn linear_to_gamma(color: &Vec3) -> Vec3 {
 
 fn render(
     screen: &mut Screen,
-    scene: &HittableList,
+    scene: &impl Hittable,
     camera: &Camera,
     samples: u32,
     max_depth: u32,
@@ -148,29 +148,29 @@ fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
     let glass_mat = Arc::new(materials::Dielectric { ior: 1.5 });
     let glass_inner_mat = Arc::new(materials::Dielectric { ior: 1.0 / 1.5 });
 
-    let mut hittables: HittableList = Vec::new();
+    let mut hittables = HittableList::new();
 
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(0.0, 0.0, -1.2),
         0.5,
         blue_diffuse.clone(),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(1.0, 0.0, -1.0),
         0.5,
         gold_mat.clone(),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(-1.0, 0.0, -1.0),
         0.5,
         glass_mat.clone(),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(-1.0, 0.0, -1.0),
         0.4,
         glass_inner_mat.clone(),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(0.0, -100.5, -1.0),
         100.0,
         ground_mat.clone(),
@@ -193,11 +193,11 @@ fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
 fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
     let mut rng = rand::thread_rng();
 
-    let mut hittables: HittableList = Vec::new();
+    let mut hittables = HittableList::new();
     hittables.reserve(22 * 22 + 10);
 
     // Ground
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(0.0, -1000.0, 0.0),
         1000.0,
         Arc::new(materials::Lambertian {
@@ -206,19 +206,19 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
     )));
 
     // Big spheres
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(0.0, 1.0, 0.0),
         1.0,
         Arc::new(materials::Dielectric { ior: 1.5 }),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(-4.0, 1.0, 0.0),
         1.0,
         Arc::new(materials::Lambertian {
             albedo: Vec3::new(0.4, 0.2, 0.1),
         }),
     )));
-    hittables.push(Box::new(Sphere::new(
+    hittables.add(Arc::new(Sphere::new(
         Vec3::new(4.0, 1.0, 0.0),
         1.0,
         Arc::new(materials::Metal {
@@ -248,7 +248,7 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
                 _ => Arc::new(materials::Dielectric { ior: 1.5 }),
             };
 
-            hittables.push(Box::new(Sphere::new(center, radius, material)));
+            hittables.add(Arc::new(Sphere::new(center, radius, material)));
         }
     }
 
@@ -267,22 +267,23 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
 }
 
 fn main() {
-    let width = 640;
-    let height = 360;
-    let samples_per_pixel = 50;
+    let width = 1920;
+    let height = 1080;
+    let samples_per_pixel = 100;
     let max_depth = 20;
     let thread_count = 8;
 
     let mut screen = Screen::new(width, height);
 
-    let (hittables, camera) = create_final_scene(width, height);
+    let (mut hittables, camera) = create_final_scene(width, height);
+    let world: BVHNode = BVHNode::from_hittable_list(&mut hittables);
 
     println!("Starting render.");
     let start_time = std::time::Instant::now();
 
     render(
         &mut screen,
-        &hittables,
+        &world,
         &camera,
         samples_per_pixel,
         max_depth,

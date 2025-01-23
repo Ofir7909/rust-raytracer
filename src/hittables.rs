@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use rand::Rng;
+
 use crate::{
     materials::Material,
-    math::{interval::Interval, ray::Ray, vec3::Vec3},
+    math::{aabb::AABB, interval::Interval, ray::Ray, vec3::Vec3},
 };
 
 pub struct HitInfo {
@@ -12,6 +14,7 @@ pub struct HitInfo {
     pub t: f32,
     pub front_face: bool,
 }
+
 impl HitInfo {
     pub fn new(material: Arc<dyn Material>) -> HitInfo {
         HitInfo {
@@ -34,20 +37,26 @@ impl HitInfo {
 
 pub trait Hittable: Send + Sync {
     fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo>;
+    fn bounding_box(&self) -> &AABB;
 }
 
 pub struct Sphere {
     center: Vec3,
     radius: f32,
     material: Arc<dyn Material>,
+    bounding_box: AABB,
 }
 
 impl Sphere {
     pub fn new(center: Vec3, radius: f32, material: Arc<dyn Material>) -> Sphere {
+        let rvec = Vec3::uniform(radius);
+        let bounding_box = AABB::from_points(&(center - rvec), &(center + rvec));
+
         Sphere {
             center,
             radius,
             material,
+            bounding_box,
         }
     }
 }
@@ -84,16 +93,39 @@ impl Hittable for Sphere {
 
         Some(hit_info)
     }
+
+    fn bounding_box(&self) -> &AABB {
+        &self.bounding_box
+    }
 }
 
-pub type HittableList = Vec<Box<dyn Hittable>>;
+#[derive(Default)]
+pub struct HittableList {
+    objects: Vec<Arc<dyn Hittable>>,
+    bounding_box: AABB,
+}
+
+impl HittableList {
+    pub fn new() -> HittableList {
+        return Default::default();
+    }
+
+    pub fn add(&mut self, obj: Arc<dyn Hittable>) {
+        self.bounding_box = AABB::combine(&self.bounding_box, obj.bounding_box());
+        self.objects.push(obj);
+    }
+
+    pub fn reserve(&mut self, count: usize) {
+        self.objects.reserve(count);
+    }
+}
 
 impl Hittable for HittableList {
     fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo> {
         let mut hit_info: Option<HitInfo> = None;
         let mut closest_so_far = t_range.end;
 
-        for obj in self.iter() {
+        for obj in self.objects.iter() {
             match obj.hit(ray, &Interval::new(t_range.start, closest_so_far)) {
                 Some(info) => {
                     closest_so_far = info.t;
@@ -104,5 +136,84 @@ impl Hittable for HittableList {
         }
 
         hit_info
+    }
+
+    fn bounding_box(&self) -> &AABB {
+        return &self.bounding_box;
+    }
+}
+
+pub struct BVHNode {
+    left: Arc<dyn Hittable>,
+    right: Arc<dyn Hittable>,
+    bounding_box: AABB,
+}
+
+impl BVHNode {
+    pub fn new(objects: &mut Vec<Arc<dyn Hittable>>, start: usize, end: usize) -> BVHNode {
+        let axis: u32 = rand::thread_rng().gen_range(0..=2);
+
+        let left;
+        let right;
+        let span = end - start;
+        match span {
+            1 => {
+                left = objects[start].clone();
+                right = objects[start].clone();
+            }
+            2 => {
+                left = objects[start].clone();
+                right = objects[start + 1].clone();
+            }
+            _ => {
+                let objects_slice = &mut objects[start..end];
+                objects_slice.sort_by(|a, b| {
+                    let a_start = a.bounding_box()[axis as usize].start;
+                    let b_start = b.bounding_box()[axis as usize].start;
+                    a_start.total_cmp(&b_start)
+                });
+
+                let mid = start + span / 2;
+                left = Arc::new(BVHNode::new(objects, start, mid));
+                right = Arc::new(BVHNode::new(objects, mid, end));
+            }
+        }
+
+        let bounding_box = AABB::combine(left.bounding_box(), right.bounding_box());
+        BVHNode {
+            left,
+            right,
+            bounding_box,
+        }
+    }
+
+    pub fn from_hittable_list(hittable_list: &mut HittableList) -> BVHNode {
+        let end = hittable_list.objects.len();
+        BVHNode::new(&mut hittable_list.objects, 0, end)
+    }
+}
+
+impl Hittable for BVHNode {
+    fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo> {
+        if !self.bounding_box.hit(ray, *t_range) {
+            return None;
+        }
+
+        let left_hit = self.left.hit(ray, t_range);
+        match left_hit {
+            Some(left_hit) => {
+                let new_t_range = Interval::new(t_range.start, left_hit.t);
+                let hit_right = self.right.hit(ray, &new_t_range);
+                match hit_right {
+                    Some(hit_right) => Some(hit_right),
+                    None => Some(left_hit),
+                }
+            }
+            None => self.right.hit(ray, t_range),
+        }
+    }
+
+    fn bounding_box(&self) -> &AABB {
+        &self.bounding_box
     }
 }
