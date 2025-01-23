@@ -6,6 +6,7 @@ mod screen;
 mod utils;
 
 use std::{
+    f32::INFINITY,
     fs::{self, File},
     io::{self, BufWriter, Write},
     path::Path,
@@ -15,7 +16,7 @@ use std::{
 
 use camera::Camera;
 use hittables::{Hittable, HittableList, Sphere};
-use math::{ray::Ray, vec3::Vec3};
+use math::{interval::Interval, ray::Ray, vec3::Vec3};
 use rand::Rng;
 use screen::Screen;
 
@@ -37,7 +38,7 @@ fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
     if depth <= 0 {
         return Vec3::ZERO;
     }
-    match world.hit(ray, 0.001, 1000.0) {
+    match world.hit(ray, &Interval::new(0.001, INFINITY)) {
         Some(hit_info) => {
             return match hit_info.material.scatter(ray, &hit_info) {
                 Some((attenution, scattered_ray)) => {
@@ -266,9 +267,9 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
 }
 
 fn main() {
-    let width = 1920;
-    let height = 1080;
-    let samples_per_pixel = 100;
+    let width = 640;
+    let height = 360;
+    let samples_per_pixel = 50;
     let max_depth = 20;
     let thread_count = 8;
 

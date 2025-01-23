@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     materials::Material,
-    math::{ray::Ray, vec3::Vec3},
+    math::{interval::Interval, ray::Ray, vec3::Vec3},
 };
 
 pub struct HitInfo {
@@ -33,7 +33,7 @@ impl HitInfo {
 }
 
 pub trait Hittable: Send + Sync {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo>;
+    fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo>;
 }
 
 pub struct Sphere {
@@ -53,7 +53,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo> {
+    fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo> {
         let origin_to_center = self.center - ray.origin;
         let a = ray.direction.length_squared();
         let h = Vec3::dot(&ray.direction, &origin_to_center);
@@ -68,9 +68,9 @@ impl Hittable for Sphere {
         let sqrt_discriminant = discriminant.sqrt();
 
         let mut t = (h - sqrt_discriminant) / a;
-        if t <= t_min || t_max <= t {
+        if !t_range.surrounds(t) {
             t = (h + sqrt_discriminant) / a;
-            if t <= t_min || t_max <= t {
+            if !t_range.surrounds(t) {
                 return None;
             }
         }
@@ -89,12 +89,12 @@ impl Hittable for Sphere {
 pub type HittableList = Vec<Box<dyn Hittable>>;
 
 impl Hittable for HittableList {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitInfo> {
+    fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo> {
         let mut hit_info: Option<HitInfo> = None;
-        let mut closest_so_far = t_max;
+        let mut closest_so_far = t_range.end;
 
         for obj in self.iter() {
-            match obj.hit(ray, t_min, closest_so_far) {
+            match obj.hit(ray, &Interval::new(t_range.start, closest_so_far)) {
                 Some(info) => {
                     closest_so_far = info.t;
                     hit_info = Some(info);
