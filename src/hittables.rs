@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use rand::Rng;
-
 use crate::{
     materials::Material,
     math::{aabb::AABB, interval::Interval, ray::Ray, vec3::Vec3},
@@ -150,9 +148,9 @@ pub struct BVHNode {
 }
 
 impl BVHNode {
-    pub fn new(objects: &mut Vec<Arc<dyn Hittable>>, start: usize, end: usize) -> BVHNode {
+    pub fn new(objects: &mut [Arc<dyn Hittable>]) -> BVHNode {
         let mut bounding_box = AABB::EMPTY;
-        for obj in &objects[start..end] {
+        for obj in objects.iter() {
             bounding_box = AABB::combine(&bounding_box, obj.bounding_box());
         }
 
@@ -160,27 +158,25 @@ impl BVHNode {
 
         let left;
         let right;
-        let span = end - start;
-        match span {
+        match objects.len() {
             1 => {
-                left = objects[start].clone();
-                right = objects[start].clone();
+                left = objects[0].clone();
+                right = objects[0].clone();
             }
             2 => {
-                left = objects[start].clone();
-                right = objects[start + 1].clone();
+                left = objects[0].clone();
+                right = objects[1].clone();
             }
             _ => {
-                let objects_slice = &mut objects[start..end];
-                objects_slice.sort_by(|a, b| {
+                objects.sort_by(|a, b| {
                     let a_start = a.bounding_box()[axis as usize].start;
                     let b_start = b.bounding_box()[axis as usize].start;
                     a_start.total_cmp(&b_start)
                 });
 
-                let mid = start + span / 2;
-                left = Arc::new(BVHNode::new(objects, start, mid));
-                right = Arc::new(BVHNode::new(objects, mid, end));
+                let mid = objects.len() / 2;
+                left = Arc::new(BVHNode::new(&mut objects[..mid]));
+                right = Arc::new(BVHNode::new(&mut objects[mid..]));
             }
         }
 
@@ -192,8 +188,7 @@ impl BVHNode {
     }
 
     pub fn from_hittable_list(hittable_list: &mut HittableList) -> BVHNode {
-        let end = hittable_list.objects.len();
-        BVHNode::new(&mut hittable_list.objects, 0, end)
+        BVHNode::new(&mut hittable_list.objects)
     }
 }
 
