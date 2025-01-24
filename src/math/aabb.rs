@@ -10,7 +10,11 @@ pub struct AABB {
 }
 
 impl AABB {
-    pub fn new(x: Interval, y: Interval, z: Interval) -> AABB {
+    pub const EMPTY: Self = AABB::new(Interval::EMPTY, Interval::EMPTY, Interval::EMPTY);
+    pub const UNIVERSE: Self =
+        AABB::new(Interval::UNIVERSE, Interval::UNIVERSE, Interval::UNIVERSE);
+
+    pub const fn new(x: Interval, y: Interval, z: Interval) -> AABB {
         AABB { x, y, z }
     }
 
@@ -60,6 +64,22 @@ impl AABB {
         }
 
         true
+    }
+
+    pub fn longest_axis(&self) -> u32 {
+        if self.x.size() >= self.y.size() {
+            if self.x.size() >= self.z.size() {
+                0
+            } else {
+                2
+            }
+        } else {
+            if self.y.size() >= self.z.size() {
+                1
+            } else {
+                2
+            }
+        }
     }
 }
 

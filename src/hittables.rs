@@ -151,7 +151,12 @@ pub struct BVHNode {
 
 impl BVHNode {
     pub fn new(objects: &mut Vec<Arc<dyn Hittable>>, start: usize, end: usize) -> BVHNode {
-        let axis: u32 = rand::thread_rng().gen_range(0..=2);
+        let mut bounding_box = AABB::EMPTY;
+        for obj in &objects[start..end] {
+            bounding_box = AABB::combine(&bounding_box, obj.bounding_box());
+        }
+
+        let axis: u32 = bounding_box.longest_axis();
 
         let left;
         let right;
@@ -179,7 +184,6 @@ impl BVHNode {
             }
         }
 
-        let bounding_box = AABB::combine(left.bounding_box(), right.bounding_box());
         BVHNode {
             left,
             right,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod camera;
 mod hittables;
 mod materials;
