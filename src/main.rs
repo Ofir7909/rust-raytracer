@@ -17,7 +17,7 @@ use std::{
 };
 
 use camera::Camera;
-use hittables::{BVHNode, Hittable, HittableList, Sphere};
+use hittables::{BVHNode, Hittable, HittableList, Quad, Sphere};
 use math::{interval::Interval, ray::Ray, vec3::Vec3};
 use rand::Rng;
 use screen::Screen;
@@ -268,16 +268,81 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
     (hittables, camera)
 }
 
+fn create_quads_scene(width: u32, height: u32) -> (HittableList, Camera) {
+    let left_red = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(1.0, 0.2, 0.2),
+    });
+    let back_green = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(0.2, 1.0, 0.2),
+    });
+    let right_blue = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(0.2, 0.2, 1.0),
+    });
+    let upper_orange = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(1.0, 0.5, 0.0),
+    });
+    let lower_teal = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(0.2, 0.8, 0.8),
+    });
+
+    let mut hittables = HittableList::new();
+
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(-3.0, -2.0, 5.0),
+        Vec3::new(0.0, 0.0, -4.0),
+        Vec3::new(0.0, 4.0, 0.0),
+        left_red.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(-2.0, -2.0, 0.0),
+        Vec3::new(4.0, 0.0, 0.0),
+        Vec3::new(0.0, 4.0, 0.0),
+        back_green.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(3.0, -2.0, 1.0),
+        Vec3::new(0.0, 0.0, 4.0),
+        Vec3::new(0.0, 4.0, 0.0),
+        right_blue.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(-2.0, 3.0, 1.0),
+        Vec3::new(4.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 4.0),
+        upper_orange.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(-2.0, -3.0, 5.0),
+        Vec3::new(4.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -4.0),
+        lower_teal.clone(),
+    )));
+
+    let camera = Camera::new(
+        width,
+        height,
+        Vec3::BACKWARD * 9.0,
+        80.0,
+        Vec3::ZERO,
+        Vec3::UP,
+        0.0,
+        1.0,
+    );
+
+    (hittables, camera)
+}
+
 fn main() {
     let width = 1920;
     let height = 1080;
-    let samples_per_pixel = 100;
+    let samples_per_pixel = 50;
     let max_depth = 20;
     let thread_count = 8;
 
     let mut screen = Screen::new(width, height);
 
-    let (mut hittables, camera) = create_final_scene(width, height);
+    let (mut hittables, camera) = create_quads_scene(width, height);
+
     let world: BVHNode = BVHNode::from_hittable_list(&mut hittables);
 
     println!("Starting render.");

@@ -15,7 +15,9 @@ impl AABB {
         AABB::new(Interval::UNIVERSE, Interval::UNIVERSE, Interval::UNIVERSE);
 
     pub const fn new(x: Interval, y: Interval, z: Interval) -> AABB {
-        AABB { x, y, z }
+        let mut obj = AABB { x, y, z };
+        obj.pad_to_minimum();
+        obj
     }
 
     pub const fn combine(a: &AABB, b: &AABB) -> AABB {
@@ -79,6 +81,19 @@ impl AABB {
             } else {
                 2
             }
+        }
+    }
+
+    const fn pad_to_minimum(&mut self) {
+        const DELTA: f32 = 0.001;
+        if self.x.size() < DELTA {
+            self.x.expand(DELTA);
+        }
+        if self.y.size() < DELTA {
+            self.y.expand(DELTA);
+        }
+        if self.z.size() < DELTA {
+            self.z.expand(DELTA);
         }
     }
 }

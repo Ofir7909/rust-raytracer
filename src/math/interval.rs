@@ -21,7 +21,7 @@ impl Interval {
         }
     }
 
-    pub fn size(&self) -> f32 {
+    pub const fn size(&self) -> f32 {
         self.end - self.start
     }
 
@@ -43,7 +43,12 @@ impl Interval {
         }
     }
 
-    pub fn expanded(&self, delta: f32) -> Interval {
+    pub const fn expand(&mut self, delta: f32) {
+        self.start -= delta / 2.0;
+        self.end += delta / 2.0;
+    }
+
+    pub const fn expanded(&self, delta: f32) -> Interval {
         Interval::new(self.start - delta / 2.0, self.end + delta / 2.0)
     }
 }

@@ -97,6 +97,77 @@ impl Hittable for Sphere {
     }
 }
 
+pub struct Quad {
+    origin: Vec3,
+    u: Vec3,
+    v: Vec3,
+    normal: Vec3,
+    d: f32,
+    w: Vec3,
+    material: Arc<dyn Material>,
+    bounding_box: AABB,
+}
+
+impl Quad {
+    pub fn new(origin: Vec3, u: Vec3, v: Vec3, material: Arc<dyn Material>) -> Quad {
+        let perp = Vec3::cross(&u, &v);
+        let normal = perp.normalized();
+        let d = Vec3::dot(&normal, &origin);
+        let w = perp / perp.length_squared();
+
+        let bbox_diagonal1 = AABB::from_points(&origin, &(origin + u + v));
+        let bbox_diagonal2 = AABB::from_points(&(origin + u), &(origin + v));
+        let bounding_box = AABB::combine(&bbox_diagonal1, &bbox_diagonal2);
+
+        Quad {
+            origin,
+            u,
+            v,
+            normal,
+            d,
+            w,
+            material,
+            bounding_box,
+        }
+    }
+}
+
+impl Hittable for Quad {
+    fn hit(&self, ray: &Ray, t_range: &Interval) -> Option<HitInfo> {
+        let denom = Vec3::dot(&self.normal, &ray.direction);
+        if denom.abs() < 1e-8 {
+            return None;
+        }
+
+        let nom = self.d - Vec3::dot(&self.normal, &ray.origin);
+        let t = nom / denom;
+        if !t_range.surrounds(t) {
+            return None;
+        }
+
+        let hit_point = ray.at(t);
+        let q_p_vector = hit_point - self.origin;
+        let alpha = Vec3::dot(&self.w, &Vec3::cross(&q_p_vector, &self.v));
+        let beta = Vec3::dot(&self.w, &Vec3::cross(&self.u, &q_p_vector));
+
+        const UNIT_INTERVAL: Interval = Interval::new(0.0, 1.0);
+        if !UNIT_INTERVAL.contains(alpha) || !UNIT_INTERVAL.contains(beta) {
+            return None;
+        }
+
+        let mut hit_info = HitInfo::new(self.material.clone());
+        hit_info.t = t;
+        hit_info.point = hit_point;
+        hit_info.set_face_normal(ray, &self.normal);
+
+        Some(hit_info)
+    }
+
+    fn bounding_box(&self) -> &AABB {
+        &self.bounding_box
+    }
+}
+
 #[derive(Default)]
 pub struct HittableList {
     objects: Vec<Arc<dyn Hittable>>,
