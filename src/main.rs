@@ -36,29 +36,23 @@ fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> 
     Ok(())
 }
 
-fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32) -> Vec3 {
+fn ray_color(ray: &Ray, world: &impl Hittable, depth: u32, background_color: &Vec3) -> Vec3 {
     if depth <= 0 {
         return Vec3::ZERO;
     }
     match world.hit(ray, &Interval::new(0.001, INFINITY)) {
         Some(hit_info) => {
-            return match hit_info.material.scatter(ray, &hit_info) {
+            let color_from_emission = hit_info.material.emitted(&hit_info);
+            match hit_info.material.scatter(ray, &hit_info) {
                 Some((attenution, scattered_ray)) => {
-                    attenution * ray_color(&scattered_ray, world, depth - 1)
+                    color_from_emission
+                        + attenution * ray_color(&scattered_ray, world, depth - 1, background_color)
                 }
-                None => Vec3::ZERO,
-            };
+                None => color_from_emission,
+            }
         }
-        None => (),
+        None => *background_color,
     }
-
-    let sky_color: Vec3 = Vec3::new(0.5, 0.7, 1.0);
-    let horizon_color: Vec3 = Vec3::new(1.0, 1.0, 1.0);
-
-    let unit_direction = ray.direction.normalized();
-    let a = (unit_direction.y + 1.0) * 0.5;
-
-    a * sky_color + (1.0 - a) * horizon_color
 }
 
 fn linear_to_gamma(color: &Vec3) -> Vec3 {
@@ -73,6 +67,7 @@ fn render(
     screen: &mut Screen,
     scene: &impl Hittable,
     camera: &Camera,
+    background_color: &Vec3,
     samples: u32,
     max_depth: u32,
     thread_count: u32,
@@ -98,7 +93,7 @@ fn render(
                         let i = (y * width + x) as usize;
                         for _ in 0..samples_in_thread {
                             let ray = camera.get_ray(x, y);
-                            colors_local[i] += ray_color(&ray, scene, max_depth);
+                            colors_local[i] += ray_color(&ray, scene, max_depth, background_color);
                         }
                     }
                 }
@@ -136,7 +131,7 @@ fn render(
     }
 }
 
-fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
+fn create_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let ground_mat = Arc::new(materials::Lambertian {
         albedo: Vec3::new(0.4, 0.59, 0.56),
     });
@@ -189,10 +184,12 @@ fn create_scene(width: u32, height: u32) -> (HittableList, Camera) {
         3.4,
     );
 
-    (hittables, camera)
+    let background_color = Vec3::new(0.5, 0.7, 1.0);
+
+    (hittables, camera, background_color)
 }
 
-fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
+fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let mut rng = rand::thread_rng();
 
     let mut hittables = HittableList::new();
@@ -265,10 +262,12 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera) {
         10.0,
     );
 
-    (hittables, camera)
+    let background_color = Vec3::new(0.5, 0.7, 1.0);
+
+    (hittables, camera, background_color)
 }
 
-fn create_quads_scene(width: u32, height: u32) -> (HittableList, Camera) {
+fn create_quads_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let left_red = Arc::new(materials::Lambertian {
         albedo: Vec3::new(1.0, 0.2, 0.2),
     });
@@ -329,19 +328,68 @@ fn create_quads_scene(width: u32, height: u32) -> (HittableList, Camera) {
         1.0,
     );
 
-    (hittables, camera)
+    let background_color = Vec3::new(0.5, 0.7, 1.0);
+
+    (hittables, camera, background_color)
+}
+
+fn create_lights_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
+    let mut hittables = HittableList::new();
+
+    hittables.add(Arc::new(Sphere::new(
+        Vec3::new(0.0, 0.5, 0.0),
+        0.5,
+        Arc::new(materials::Lambertian {
+            albedo: Vec3::new(0.2, 0.2, 0.9),
+        }),
+    )));
+
+    //Floor
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(-500.0, 0.0, -500.0),
+        Vec3::RIGHT * 1000.0,
+        Vec3::BACKWARD * 1000.0,
+        Arc::new(materials::Lambertian {
+            albedo: Vec3::uniform(0.5),
+        }),
+    )));
+
+    // Light
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(1.0, 0.0, -0.8),
+        Vec3::UP * 1.0,
+        Vec3::BACKWARD * 1.6,
+        Arc::new(materials::DiffuseLight {
+            color: Vec3::new(1.0, 1.0, 1.0) * 4.0,
+        }),
+    )));
+
+    let camera = Camera::new(
+        width,
+        height,
+        Vec3::new(-0.6, 0.7, 2.0),
+        50.0,
+        Vec3::new(0.0, 0.5, 0.0),
+        Vec3::UP,
+        0.0,
+        1.0,
+    );
+
+    let background_color = Vec3::uniform(0.002);
+
+    (hittables, camera, background_color)
 }
 
 fn main() {
     let width = 1920;
     let height = 1080;
-    let samples_per_pixel = 50;
+    let samples_per_pixel = 20;
     let max_depth = 20;
     let thread_count = 8;
 
     let mut screen = Screen::new(width, height);
 
-    let (mut hittables, camera) = create_quads_scene(width, height);
+    let (mut hittables, camera, background_color) = create_lights_scene(width, height);
 
     let world: BVHNode = BVHNode::from_hittable_list(&mut hittables);
 
@@ -352,6 +400,7 @@ fn main() {
         &mut screen,
         &world,
         &camera,
+        &background_color,
         samples_per_pixel,
         max_depth,
         thread_count,

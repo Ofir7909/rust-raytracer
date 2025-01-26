@@ -7,7 +7,13 @@ use crate::{
 };
 
 pub trait Material: Send + Sync {
-    fn scatter(&self, ray_in: &Ray, hit_info: &HitInfo) -> Option<(Vec3, Ray)>;
+    fn scatter(&self, _ray_in: &Ray, _hit_info: &HitInfo) -> Option<(Vec3, Ray)> {
+        None
+    }
+
+    fn emitted(&self, _hit_info: &HitInfo) -> Vec3 {
+        Vec3::ZERO
+    }
 }
 
 pub struct Lambertian {
@@ -79,4 +85,14 @@ fn reflectance(cos_theta: f32, ior: f32) -> f32 {
     let r0 = r0 * r0;
 
     r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
+}
+
+pub struct DiffuseLight {
+    pub color: Vec3,
+}
+
+impl Material for DiffuseLight {
+    fn emitted(&self, _hit_info: &HitInfo) -> Vec3 {
+        self.color
+    }
 }
