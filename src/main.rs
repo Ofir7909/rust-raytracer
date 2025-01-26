@@ -380,16 +380,95 @@ fn create_lights_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) 
     (hittables, camera, background_color)
 }
 
+fn create_cornell_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
+    let red_wall = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(0.65, 0.05, 0.05),
+    });
+    let white_wall = Arc::new(materials::Lambertian {
+        albedo: Vec3::uniform(0.73),
+    });
+    let green_wall = Arc::new(materials::Lambertian {
+        albedo: Vec3::new(0.12, 0.45, 0.15),
+    });
+
+    let mut hittables = HittableList::new();
+
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(555.0, 0.0, 0.0),
+        Vec3::UP * 555.0,
+        Vec3::BACKWARD * 555.0,
+        green_wall.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::UP * 555.0,
+        Vec3::BACKWARD * 555.0,
+        red_wall.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::RIGHT * 555.0,
+        Vec3::BACKWARD * 555.0,
+        white_wall.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(555.0, 555.0, 555.0),
+        Vec3::LEFT * 555.0,
+        Vec3::FORWARD * 555.0,
+        white_wall.clone(),
+    )));
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(0.0, 0.0, 555.0),
+        Vec3::RIGHT * 555.0,
+        Vec3::UP * 555.0,
+        white_wall.clone(),
+    )));
+
+    // Light
+    hittables.add(Arc::new(Quad::new(
+        Vec3::new(343.0, 554.0, 332.0),
+        Vec3::LEFT * 130.0,
+        Vec3::FORWARD * 105.0,
+        Arc::new(materials::DiffuseLight {
+            color: Vec3::new(1.0, 1.0, 1.0) * 15.0,
+        }),
+    )));
+
+    let camera = Camera::new(
+        width,
+        height,
+        Vec3::new(278.0, 278.0, -800.0),
+        40.0,
+        Vec3::new(278.0, 278.0, 0.0),
+        Vec3::UP,
+        0.0,
+        1.0,
+    );
+
+    let background_color = Vec3::ZERO;
+
+    (hittables, camera, background_color)
+}
+
 fn main() {
-    let width = 1920;
-    let height = 1080;
-    let samples_per_pixel = 20;
+    let scene_index = 4;
+    let width = 1080 / 2;
+    let height = 1080 / 2;
+    let samples_per_pixel = 200;
     let max_depth = 20;
     let thread_count = 8;
 
     let mut screen = Screen::new(width, height);
 
-    let (mut hittables, camera, background_color) = create_lights_scene(width, height);
+    let (mut hittables, camera, background_color) = match scene_index {
+        0 => create_scene(width, height),
+        1 => create_final_scene(width, height),
+        2 => create_quads_scene(width, height),
+        3 => create_lights_scene(width, height),
+        4 => create_cornell_scene(width, height),
+        _ => panic!("Unknown scene"),
+    };
+    create_cornell_scene(width, height);
 
     let world: BVHNode = BVHNode::from_hittable_list(&mut hittables);
 
