@@ -202,3 +202,211 @@ impl ops::Index<usize> for Vec3 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+
+    use super::*;
+
+    #[test]
+    fn new_works() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(v.x, 10.0);
+        assert_eq!(v.y, -5.5);
+        assert_eq!(v.z, 7.0);
+    }
+
+    #[test]
+    fn default_is_zero() {
+        let v = Vec3::default();
+        assert_eq!(v.x, 0.0);
+        assert_eq!(v.y, 0.0);
+        assert_eq!(v.z, 0.0);
+    }
+
+    #[test]
+    fn uniform() {
+        let v = Vec3::uniform(-5.5);
+        assert_eq!(v.x, -5.5);
+        assert_eq!(v.y, -5.5);
+        assert_eq!(v.z, -5.5);
+    }
+
+    #[test]
+    fn length_squared_works() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(v.length_squared(), 179.25);
+    }
+
+    #[test]
+    fn length_works() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        assert_approx_eq!(v.length(), 13.388, 0.01);
+    }
+
+    #[test]
+    fn normalized_unit_vector_no_change() {
+        assert_eq!(Vec3::RIGHT, Vec3::RIGHT.normalized());
+    }
+
+    #[test]
+    fn normalized_length_eq_one() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        assert_approx_eq!(v.normalized().length(), 1.0);
+    }
+
+    #[test]
+    fn near_zero_works() {
+        assert_eq!(Vec3::ZERO.near_zero(), true);
+        assert_eq!(Vec3::ONE.near_zero(), false);
+        assert_eq!(Vec3::new(10.0, -5.5, 7.0).near_zero(), false);
+        assert_eq!(Vec3::new(0.0, 9e-9, 5e-9).near_zero(), true);
+    }
+
+    #[test]
+    fn reflected_unit_vector_stays_unit() {
+        let v = Vec3::new(10.0, -5.5, 7.0).normalized();
+        let n = Vec3::new(3.0, 4.0, -8.0).normalized();
+        let refracted = v.reflected(&n);
+        assert_eq!(refracted.length(), 1.0);
+    }
+
+    #[test]
+    fn reflected_correct_x() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        let n = Vec3::RIGHT;
+        let reflected = v.reflected(&n);
+        assert_eq!(reflected, Vec3::new(-10.0, -5.5, 7.0));
+    }
+
+    #[test]
+    fn refracted_unit_vector_stays_unit() {
+        let v = Vec3::new(10.0, -5.5, 7.0).normalized();
+        let n = Vec3::new(3.0, 4.0, -8.0).normalized();
+        let refracted = v.refracted(&n, 1.0 / 1.5);
+        assert_eq!(refracted.length(), 1.0);
+    }
+
+    #[test]
+    fn dot_produt_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        let res = Vec3::dot(&a, &b);
+        assert_eq!(res, -48.0);
+
+        let res = Vec3::dot(&b, &a);
+        assert_eq!(res, -48.0);
+    }
+
+    #[test]
+    fn cross_produt_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        let res = Vec3::cross(&a, &b);
+        assert_eq!(res.x, 16.0);
+        assert_eq!(res.y, 101.0);
+        assert_eq!(res.z, 56.5);
+
+        let res = Vec3::cross(&b, &a);
+        assert_eq!(res.x, -16.0);
+        assert_eq!(res.y, -101.0);
+        assert_eq!(res.z, -56.5);
+    }
+
+    #[test]
+    fn negate_oper_works() {
+        let v = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(-v, Vec3::new(-10.0, 5.5, -7.0));
+    }
+
+    #[test]
+    fn add_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        assert_eq!(a + b, Vec3::new(13.0, -1.5, -1.0));
+        assert_eq!(b + a, Vec3::new(13.0, -1.5, -1.0));
+    }
+
+    #[test]
+    fn add_assign_oper_works() {
+        let mut a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        a += b;
+        assert_eq!(a, Vec3::new(13.0, -1.5, -1.0));
+    }
+
+    #[test]
+    fn sub_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        assert_eq!(a - b, Vec3::new(7.0, -9.5, 15.0));
+        assert_eq!(b - a, Vec3::new(-7.0, 9.5, -15.0));
+    }
+
+    #[test]
+    fn sub_assign_oper_works() {
+        let mut a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        a -= b;
+        assert_eq!(a, Vec3::new(7.0, -9.5, 15.0))
+    }
+
+    #[test]
+    fn mul_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        assert_eq!(a * b, Vec3::new(30.0, -22.0, -56.0));
+        assert_eq!(b * a, Vec3::new(30.0, -22.0, -56.0));
+    }
+
+    #[test]
+    fn mul_assign_oper_works() {
+        let mut a = Vec3::new(10.0, -5.5, 7.0);
+        let b = Vec3::new(3.0, 4.0, -8.0);
+        a *= b;
+        assert_eq!(a, Vec3::new(30.0, -22.0, -56.0));
+    }
+
+    #[test]
+    fn mul_f32_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(a * 2.0, Vec3::new(20.0, -11.0, 14.0));
+        assert_eq!(2.0 * a, Vec3::new(20.0, -11.0, 14.0));
+    }
+
+    #[test]
+    fn mul_assign_f32_oper_works() {
+        let mut a = Vec3::new(10.0, -5.5, 7.0);
+        a *= 2.0;
+        assert_eq!(a, Vec3::new(20.0, -11.0, 14.0));
+    }
+
+    #[test]
+    fn div_f32_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(a / 2.0, Vec3::new(5.0, -2.75, 3.5));
+    }
+
+    #[test]
+    fn div_assign_f32_oper_works() {
+        let mut a = Vec3::new(10.0, -5.5, 7.0);
+        a /= 2.0;
+        assert_eq!(a, Vec3::new(5.0, -2.75, 3.5));
+    }
+
+    #[test]
+    fn index_oper_works() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        assert_eq!(a[0], 10.0);
+        assert_eq!(a[1], -5.5);
+        assert_eq!(a[2], 7.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn index_oper_out_of_bounds() {
+        let a = Vec3::new(10.0, -5.5, 7.0);
+        a[3];
+    }
+}
