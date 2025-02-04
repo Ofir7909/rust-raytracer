@@ -10,6 +10,8 @@ pub struct HitInfo {
     pub normal: Vec3,
     pub material: Arc<dyn Material>,
     pub t: f32,
+    pub u: f32,
+    pub v: f32,
     pub front_face: bool,
 }
 
@@ -20,6 +22,8 @@ impl HitInfo {
             point: Default::default(),
             normal: Default::default(),
             t: Default::default(),
+            u: Default::default(),
+            v: Default::default(),
             front_face: Default::default(),
         }
     }

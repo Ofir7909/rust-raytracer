@@ -1,8 +1,10 @@
 use rand::Rng;
+use std::sync::Arc;
 
 use crate::{
     hittables::HitInfo,
     math::{ray::Ray, vec3::Vec3},
+    textures::Texture,
     utils,
 };
 
@@ -17,7 +19,7 @@ pub trait Material: Send + Sync {
 }
 
 pub struct Lambertian {
-    pub albedo: Vec3,
+    pub albedo: Arc<dyn Texture>,
 }
 
 impl Material for Lambertian {
@@ -26,8 +28,9 @@ impl Material for Lambertian {
         if dir.near_zero() {
             dir = hit_info.normal;
         }
+        let albedo_color = self.albedo.sample(hit_info.u, hit_info.v, &hit_info.point);
 
-        Some((self.albedo, Ray::new(hit_info.point, dir)))
+        Some((albedo_color, Ray::new(hit_info.point, dir)))
     }
 }
 

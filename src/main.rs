@@ -5,6 +5,7 @@ mod hittables;
 mod materials;
 mod math;
 mod screen;
+mod textures;
 mod utils;
 
 use std::{
@@ -21,6 +22,7 @@ use hittables::{BVHNode, Hittable, HittableList, Quad, Sphere};
 use math::{interval::Interval, ray::Ray, vec3::Vec3};
 use rand::Rng;
 use screen::Screen;
+use textures::{CheckerTexture, SolidColorTexture};
 
 fn write_to_file_ppm(screen: &Screen, filepath: &Path) -> Result<(), io::Error> {
     let parent_dir = filepath.parent().unwrap_or(Path::new(""));
@@ -133,10 +135,14 @@ fn render(
 
 fn create_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let ground_mat = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.4, 0.59, 0.56),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.4, 0.59, 0.56),
+        }),
     });
     let blue_diffuse = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.1, 0.2, 0.8),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.1, 0.2, 0.8),
+        }),
     });
     let gold_mat = Arc::new(materials::Metal {
         albedo: Vec3::new(0.944, 0.776, 0.373),
@@ -200,7 +206,14 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
         Vec3::new(0.0, -1000.0, 0.0),
         1000.0,
         Arc::new(materials::Lambertian {
-            albedo: Vec3::new(0.4, 0.59, 0.56),
+            albedo: Arc::new(CheckerTexture {
+                even_texture: Arc::new(SolidColorTexture {
+                    color: Vec3::new(0.2, 0.3, 0.1),
+                }),
+                odd_texture: Arc::new(SolidColorTexture {
+                    color: Vec3::new(0.9, 0.9, 0.9),
+                }),
+            }),
         }),
     )));
 
@@ -214,7 +227,9 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
         Vec3::new(-4.0, 1.0, 0.0),
         1.0,
         Arc::new(materials::Lambertian {
-            albedo: Vec3::new(0.4, 0.2, 0.1),
+            albedo: Arc::new(SolidColorTexture {
+                color: (Vec3::new(0.4, 0.2, 0.1)),
+            }),
         }),
     )));
     hittables.add(Arc::new(Sphere::new(
@@ -238,7 +253,9 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
 
             let material: Arc<dyn materials::Material> = match rng.gen::<f32>() {
                 x if x < 0.7 => Arc::new(materials::Lambertian {
-                    albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
+                    albedo: Arc::new(SolidColorTexture {
+                        color: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
+                    }),
                 }),
                 x if x < 0.9 => Arc::new(materials::Metal {
                     albedo: Vec3::new(rng.gen(), rng.gen(), rng.gen()),
@@ -269,19 +286,29 @@ fn create_final_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
 
 fn create_quads_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let left_red = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(1.0, 0.2, 0.2),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(1.0, 0.2, 0.2),
+        }),
     });
     let back_green = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.2, 1.0, 0.2),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.2, 1.0, 0.2),
+        }),
     });
     let right_blue = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.2, 0.2, 1.0),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.2, 0.2, 1.0),
+        }),
     });
     let upper_orange = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(1.0, 0.5, 0.0),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(1.0, 0.5, 0.0),
+        }),
     });
     let lower_teal = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.2, 0.8, 0.8),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.2, 0.8, 0.8),
+        }),
     });
 
     let mut hittables = HittableList::new();
@@ -340,7 +367,9 @@ fn create_lights_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) 
         Vec3::new(0.0, 0.5, 0.0),
         0.5,
         Arc::new(materials::Lambertian {
-            albedo: Vec3::new(0.2, 0.2, 0.9),
+            albedo: Arc::new(SolidColorTexture {
+                color: Vec3::new(0.2, 0.2, 0.9),
+            }),
         }),
     )));
 
@@ -350,7 +379,9 @@ fn create_lights_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) 
         Vec3::RIGHT * 1000.0,
         Vec3::BACKWARD * 1000.0,
         Arc::new(materials::Lambertian {
-            albedo: Vec3::uniform(0.5),
+            albedo: Arc::new(SolidColorTexture {
+                color: Vec3::uniform(0.5),
+            }),
         }),
     )));
 
@@ -382,13 +413,19 @@ fn create_lights_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) 
 
 fn create_cornell_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3) {
     let red_wall = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.65, 0.05, 0.05),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.65, 0.05, 0.05),
+        }),
     });
     let white_wall = Arc::new(materials::Lambertian {
-        albedo: Vec3::uniform(0.73),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::uniform(0.73),
+        }),
     });
     let green_wall = Arc::new(materials::Lambertian {
-        albedo: Vec3::new(0.12, 0.45, 0.15),
+        albedo: Arc::new(SolidColorTexture {
+            color: Vec3::new(0.12, 0.45, 0.15),
+        }),
     });
 
     let mut hittables = HittableList::new();
@@ -451,7 +488,7 @@ fn create_cornell_scene(width: u32, height: u32) -> (HittableList, Camera, Vec3)
 }
 
 fn main() {
-    let scene_index = 4;
+    let scene_index = 1;
     let width = 1080 / 2;
     let height = 1080 / 2;
     let samples_per_pixel = 200;
